@@ -2,10 +2,10 @@
 
 import { program } from 'commander';
 import debug from 'debug';
-import { existsSync, readFileSync } from 'node:fs';
-import { readFile, rm } from 'node:fs/promises';
-import { join } from 'node:path';
-import * as url from 'node:url';
+import { existsSync, readFileSync } from 'fs';
+import { readFile, rm } from 'fs/promises';
+import { join } from 'path';
+import * as url from 'url';
 import { webcrack } from './index.js';
 
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
@@ -56,12 +56,25 @@ program
     }
 
     const result = await webcrack(code, options);
+    const { code: outputCode, bundle } = result;
 
     if (output) {
-      await result.save(output);
+      const { mkdir, writeFile } = await import('fs/promises');
+      const { join } = await import('path');
+
+      await mkdir(output, { recursive: true });
+      await writeFile(join(output, 'deobfuscated.js'), outputCode, 'utf8');
+
+      if (bundle) {
+        for (const [filename, content] of Object.entries(bundle.modules)) {
+          const filepath = join(output, filename);
+          await mkdir(join(filepath, '..'), { recursive: true });
+          await writeFile(filepath, content, 'utf8');
+        }
+      }
     } else {
-      console.log(result.code);
-      if (result.bundle) {
+      console.log(outputCode);
+      if (bundle) {
         debug('webcrack:unpack')(
           'Modules are not displayed in the terminal. Use the --output option to save them to a directory.',
         );
